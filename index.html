@@ -273,10 +273,12 @@ function skyt(p){
 function treff(s,p){
   s.v=s.v/p; s.funnet.push(p);
   poeng+=10;
+  if(poeng > beste){ beste = poeng; localStorage.setItem('faktorfall_beste', beste.toString()); }
   flyt(s.x,s.y,':'+p,'#4df0ff');
   if(s.v===1){
     const bonus=20+10*s.funnet.length;
     poeng+=bonus; knust++;
+    if(poeng > beste){ beste = poeng; localStorage.setItem('faktorfall_beste', beste.toString()); }
     const fasit=s.start+' = '+s.funnet.slice().sort((a,b)=>a-b).join('·');
     sprengning(s.x,s.y,'#ffd23f',30);
     flyt(Math.max(140,Math.min(VB-140,s.x)), s.y-34, fasit, '#ffd23f');
@@ -542,11 +544,17 @@ function tegn(tid){
   ctx.fillStyle='rgba(4, 7, 10, 0.6)';
   ctx.fillRect(0,0,VB,HUD);
   ctx.fillStyle='#4cff9a';
-  ctx.font='400 14px '+ARKADE;
+  ctx.font='400 13px '+ARKADE;
   ctx.textAlign='left'; ctx.textBaseline='middle';
   ctx.fillText('POENG '+String(poeng).padStart(5,'0'), 16, 24);
+
+  // Vis highscore (BESTE) midt i toppen med gul farge
+  ctx.fillStyle='#ffd23f';
+  ctx.fillText('BESTE '+String(beste).padStart(5,'0'), 220, 24);
+
+  ctx.fillStyle='#4cff9a';
   ctx.textAlign='center';
-  ctx.fillText('NIVÅ '+niva, VB/2, 24);
+  ctx.fillText('NIVÅ '+niva, 460, 24);
   for(let i=0;i<liv;i++) tegnKanon(VB-40-i*46, 14, '#4cff9a');
   ctx.strokeStyle='#123d2a'; ctx.lineWidth=2;
   ctx.beginPath(); ctx.moveTo(0,HUD); ctx.lineTo(VB,HUD); ctx.stroke();
@@ -589,7 +597,7 @@ function skjulSkjerm(){ document.getElementById('skjerm').classList.add('skjult'
 
 function intro(){
   tilstand='intro';
-  const rekordHtml = beste > 0 ? '<p class="fasit" style="margin:0 0 10px 0;">DIN REKORD: <span>'+beste+'</span></p>' : '';
+  const rekordHtml = '<p class="fasit" style="margin:0 0 10px 0;">REKORD: <span>'+beste+'</span></p>';
   visSkjerm(
     '<h1>FAKTOR<em>FALL</em></h1>'+
     rekordHtml +
@@ -618,13 +626,16 @@ function start(){
 
 function slutt(){
   tilstand='slutt';
+  let nyRekord = false;
   if(poeng > beste){
     beste = poeng;
     localStorage.setItem('faktorfall_beste', beste.toString());
+    nyRekord = true;
   }
+  const rekordTekst = nyRekord ? '<br><span style="color:var(--gul); font-size:13px;">NY REKORD!</span>' : '';
   visSkjerm(
     '<h1>GAME OVER</h1>'+
-    '<p class="fasit">POENG <span>'+poeng+'</span><br>TALL FAKTORISERT <span>'+knust+'</span><br>NIVÅ <span>'+niva+'</span><br>BESTE I ØKTA <span>'+beste+'</span></p>'+
+    '<p class="fasit">POENG <span>'+poeng+'</span><br>TALL FAKTORISERT <span>'+knust+'</span><br>NIVÅ <span>'+niva+'</span><br>REKORD <span>'+beste+'</span>'+rekordTekst+'</p>'+
     '<button class="start" id="knapp-start">SPILL IGJEN</button>'
   );
   document.getElementById('knapp-start').addEventListener('click',start);
