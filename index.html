@@ -153,11 +153,11 @@ const ctx=lerret.getContext('2d');
 const ARKADE='"Press Start 2P","Courier New",monospace';
 
 const NIVAER=[
-  {primer:[2,3,5],         min:12, maks:100, fart:24, slipp:4.4, maksStein:3},
-  {primer:[2,3,5,7],       min:20, maks:200, fart:29, slipp:4.0, maksStein:4},
-  {primer:[2,3,5,7,11],    min:30, maks:300, fart:34, slipp:3.5, maksStein:4},
-  {primer:[2,3,5,7,11,13], min:40, maks:500, fart:40, slipp:3.1, maksStein:5},
-  {primer:[2,3,5,7,11,13], min:60, maks:600, fart:47, slipp:2.7, maksStein:5}
+  {primer:[2,3,5],         min:12, maks:100, fart:20, slipp:6.5, maksStein:2},
+  {primer:[2,3,5,7],       min:20, maks:200, fart:25, slipp:5.6, maksStein:3},
+  {primer:[2,3,5,7,11],    min:30, maks:300, fart:30, slipp:4.8, maksStein:3},
+  {primer:[2,3,5,7,11,13], min:40, maks:500, fart:36, slipp:4.0, maksStein:4},
+  {primer:[2,3,5,7,11,13], min:60, maks:600, fart:43, slipp:3.4, maksStein:4}
 ];
 const KNUST_PER_NIVA=8;
 
@@ -181,7 +181,7 @@ function nyeBunkere(){
       if(r===3 && c>1 && c<5) continue;
       celler.push({c:c,r:r,liv:true});
     }
-    bunkere.push({x:110+i*196, y:BAKKE-46, celler:celler});
+    bunkere.push({x:[62,208,494,640][i], y:BAKKE-50, b:98, celler:celler});
   }
 }
 
@@ -211,11 +211,18 @@ function bredde(v){ return 34+String(v).length*30; }
 
 function nyStein(){
   const c=cfg(), v=nyVerdi(c), b=bredde(v);
+  let x=0;
+  for(let f=0;f<24;f++){
+    x = b/2+14+Math.random()*(VB-b-28);
+    let fri=true;
+    for(const s of steiner) if(Math.abs(s.x-x) < (s.b+b)/2+40 && s.y < HUD+180) fri=false;
+    if(fri) break;
+  }
   return {
     start:v, v:v, funnet:[],
     b:b, h:64,
-    x:b/2+14+Math.random()*(VB-b-28),
-    y:HUD-40,
+    x:x,
+    y:-60,
     fart:c.fart*(.85+Math.random()*.3),
     blink:0
   };
@@ -259,6 +266,7 @@ function treff(s,p){
     pip(880,.09,'square'); setTimeout(()=>pip(1180,.14,'square'),80);
     steiner.splice(steiner.indexOf(s),1);
     if(valgt===s) valgt=null;
+    fyllPa();
     if(knust%KNUST_PER_NIVA===0 && niva<NIVAER.length){
       niva++; byggPad(); banner=2.2; bannerTekst='NIVÅ '+niva;
     }
@@ -277,20 +285,31 @@ function bom(s,p){
 function nedslag(s){
   liv--; risting=.55;
   sprengning(s.x,BAKKE-12,'#ff4d5e',34);
-  skadBunker(s.x);
   steiner.splice(steiner.indexOf(s),1);
   if(valgt===s) valgt=null;
+  fyllPa();
   if(liv<=0) slutt();
 }
-function skadBunker(x){
-  let naermest=null,d=1e9;
-  for(const b of bunkere){ const dd=Math.abs(b.x+49-x); if(dd<d){d=dd;naermest=b;} }
-  if(!naermest||d>150) return;
-  const igjen=naermest.celler.filter(c=>c.liv);
-  for(let i=0;i<7 && igjen.length;i++){
-    const c=igjen.splice(Math.floor(Math.random()*igjen.length),1)[0];
-    c.liv=false;
+
+/* bunkeren fanger opp ett tall og mister blokkene der treffet kom */
+function bunkerFanger(s){
+  for(const b of bunkere){
+    if(s.y+s.h/2 < b.y) continue;
+    const x0=s.x-s.b/2, x1=s.x+s.b/2;
+    if(x1 < b.x || x0 > b.x+b.b) continue;
+    const truffet=b.celler.filter(c=>c.liv && (b.x+c.c*14+13)>x0 && (b.x+c.c*14)<x1);
+    if(truffet.length){
+      truffet.forEach(c=>c.liv=false);
+      sprengning(s.x, b.y, '#2ecc71', 22);
+      flyt(s.x, b.y-24, 'BUNKEREN TOK DEN', '#2ecc71');
+      steiner.splice(steiner.indexOf(s),1);
+      if(valgt===s) valgt=null;
+      fyllPa();
+      risting=.25;
+      return true;
+    }
   }
+  return false;
 }
 
 function sprengning(x,y,farge,n){
@@ -300,6 +319,12 @@ function sprengning(x,y,farge,n){
   }
 }
 function flyt(x,y,txt,farge){ tekster.push({x:x,y:y,txt:txt,farge:farge,t:0}); }
+
+/* etter at et tall er ute av veien skal neste komme raskere */
+function fyllPa(){
+  const tak = steiner.length===0 ? 1.0 : 2.2;
+  if(slippTimer>tak) slippTimer=tak;
+}
 
 /* ===== logikk ===== */
 function steg(dt){
@@ -314,6 +339,7 @@ function steg(dt){
     const s=steiner[i];
     s.y+=s.fart*dt;
     if(s.blink>0) s.blink-=dt;
+    if(bunkerFanger(s)) continue;
     if(s.y+s.h/2>=BAKKE) nedslag(s);
   }
 
@@ -426,17 +452,6 @@ function tegn(tid){
   }
   ctx.globalAlpha=1;
 
-  // hud
-  ctx.fillStyle='#4cff9a';
-  ctx.font='400 14px '+ARKADE;
-  ctx.textAlign='left'; ctx.textBaseline='middle';
-  ctx.fillText('POENG '+String(poeng).padStart(5,'0'), 16, 24);
-  ctx.textAlign='center';
-  ctx.fillText('NIVÅ '+niva, VB/2, 24);
-  for(let i=0;i<liv;i++) tegnKanon(VB-40-i*46, 14, '#4cff9a');
-  ctx.strokeStyle='#123d2a'; ctx.lineWidth=2;
-  ctx.beginPath(); ctx.moveTo(0,HUD); ctx.lineTo(VB,HUD); ctx.stroke();
-
   // bakke
   ctx.fillStyle='#1c7a4a';
   px(0,BAKKE,VB,4);
@@ -499,6 +514,19 @@ function tegn(tid){
 
   ctx.restore();
 
+  // hud, tegnet over alt så tallene sklir ut bak den
+  ctx.fillStyle='#04070a';
+  ctx.fillRect(0,0,VB,HUD);
+  ctx.fillStyle='#4cff9a';
+  ctx.font='400 14px '+ARKADE;
+  ctx.textAlign='left'; ctx.textBaseline='middle';
+  ctx.fillText('POENG '+String(poeng).padStart(5,'0'), 16, 24);
+  ctx.textAlign='center';
+  ctx.fillText('NIVÅ '+niva, VB/2, 24);
+  for(let i=0;i<liv;i++) tegnKanon(VB-40-i*46, 14, '#4cff9a');
+  ctx.strokeStyle='#123d2a'; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(0,HUD); ctx.lineTo(VB,HUD); ctx.stroke();
+
   // skannelinjer
   ctx.globalAlpha=.16; ctx.fillStyle='#000';
   for(let y=0;y<VH;y+=4) ctx.fillRect(0,y,VB,2);
@@ -546,6 +574,7 @@ function intro(){
       '<li>Går det opp, deles tallet: <b>84 → 42 → 21 → 7 → 1</b>.</li>'+
       '<li>Siste primtallet må også skytes. Rammen blir gul når bare primtallet står igjen.</li>'+
       '<li>Bommer du, faller tallet raskere. Treffer det bakken, mister du en kanon.</li>'+
+      '<li>Bunkerne nederst fanger opp ett tall hver gang, men smuldrer vekk der treffet kom.</li>'+
       '<li>Trykk på et annet tall for å sikte på det i stedet. Tastene 1–6 skyter også.</li>'+
     '</ol>'+
     '<button class="start blink" id="knapp-start">TRYKK FOR Å STARTE</button>'
