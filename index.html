@@ -122,6 +122,16 @@
   .blink{ animation:blink 1.1s steps(2,end) infinite }
   @keyframes blink{ 50%{opacity:.25} }
   @media (prefers-reduced-motion:reduce){ .blink{animation:none} }
+  
+  @media (max-width:600px){
+    header{ flex-wrap:wrap; justify-content:center; padding:8px; gap:8px }
+    .verktoy{ margin-left:0; width:100%; justify-content:center }
+    #skjerm{ padding:10px }
+    .kort h1{ font-size:24px }
+    .kort p, .kort ol{ font-size:12px; margin:10px 0 }
+    .kort ol{ padding-left:16px }
+    .start{ padding:12px 20px; font-size:11px }
+  }
 </style>
 </head>
 <body>
@@ -159,7 +169,10 @@ const NIVAER=[
   {primer:[2,3,5,7],       min:20, maks:200, fart:20, slipp:5.0, maksStein:2},
   {primer:[2,3,5,7,11],    min:30, maks:300, fart:24, slipp:4.5, maksStein:2},
   {primer:[2,3,5,7,11,13], min:40, maks:400, fart:28, slipp:4.0, maksStein:3},
-  {primer:[2,3,5,7,11,13], min:60, maks:600, fart:34, slipp:3.5, maksStein:3}
+  {primer:[2,3,5,7,11,13], min:60, maks:600, fart:34, slipp:3.5, maksStein:3},
+  {primer:[2,3,5,7,11,13,17], min:100, maks:900, fart:38, slipp:3.2, maksStein:3},
+  {primer:[2,3,5,7,11,13,17,19], min:150, maks:1300, fart:42, slipp:3.0, maksStein:4},
+  {primer:[2,3,5,7,11,13,17,19], min:200, maks:2000, fart:46, slipp:2.8, maksStein:4}
 ];
 const KNUST_PER_NIVA=8;
 
@@ -168,6 +181,7 @@ let niva=1, poeng=0, liv=3, knust=0;
 let beste = parseInt(localStorage.getItem('faktorfall_beste') || '0', 10);
 let steiner=[], skudd=[], gnister=[], tekster=[];
 let valgt=null, slippTimer=0, risting=0, banner=0, bannerTekst='';
+let straffeTimer=0;
 let sisteTid=0, aktivePrimer=[], marsj=0, marsjTakt=0;
 let lydPa=true, lydCtx=null;
 
@@ -250,7 +264,7 @@ function pip(frek,lengde,type,vol){
 
 /* ===== handlinger ===== */
 function skyt(p){
-  if(tilstand!=='spill') return;
+  if(tilstand!=='spill' || straffeTimer>0) return;
   const t=mal(); if(!t) return;
   skudd.push({p:p, x:VB/2, y:BAKKE-26, mal:t});
   pip(380,.05,'square');
@@ -279,9 +293,12 @@ function treff(s,p){
 }
 
 function bom(s,p){
-  s.blink=.45; s.fart*=1.12;
-  poeng=Math.max(0,poeng-5);
-  flyt(s.x, s.y-s.h/2-16, s.v+' : '+p+' går ikke opp', '#ff4d5e');
+  s.blink=.45; s.fart*=1.3;
+  poeng=Math.max(0,poeng-20);
+  straffeTimer=1.0;
+  pip(150,.2,'sawtooth',.08);
+  flyt(s.x, s.y-s.h/2-16, s.v+' : '+p+' går ikke', '#ff4d5e');
+  flyt(VB/2, BAKKE-50, 'KANON LÅST!', '#ff4d5e');
 }
 
 function nedslag(s){
@@ -335,6 +352,7 @@ function fyllPa(){
 function steg(dt){
   const c=cfg();
   slippTimer-=dt;
+  if(straffeTimer>0) straffeTimer-=dt;
   if(slippTimer<=0 && steiner.length<c.maksStein){ steiner.push(nyStein()); slippTimer=c.slipp; }
 
   marsjTakt+=dt;
@@ -468,7 +486,8 @@ function tegn(tid){
   }
 
   // kanon
-  tegnKanon(VB/2, BAKKE-34, '#4cff9a');
+  const kanonFarge = straffeTimer > 0 ? '#ff4d5e' : '#4cff9a';
+  tegnKanon(VB/2, BAKKE-34, kanonFarge);
 
   // siktelinje
   const t=mal();
@@ -570,8 +589,10 @@ function skjulSkjerm(){ document.getElementById('skjerm').classList.add('skjult'
 
 function intro(){
   tilstand='intro';
+  const rekordHtml = beste > 0 ? '<p class="fasit" style="margin:0 0 10px 0;">DIN REKORD: <span>'+beste+'</span></p>' : '';
   visSkjerm(
     '<h1>FAKTOR<em>FALL</em></h1>'+
+    rekordHtml +
     '<p>Sammensatte tall angriper ovenfra. Skyt dem i stykker med primtall til det ikke er noe igjen.</p>'+
     '<ol>'+
       '<li>Trykk på et primtall for å skyte det mot tallet nærmest bakken.</li>'+
@@ -579,7 +600,7 @@ function intro(){
       '<li>Siste primtallet må også skytes. Rammen blir gul når bare primtallet står igjen.</li>'+
       '<li>Bommer du, faller tallet raskere. Treffer det bakken, mister du en kanon.</li>'+
       '<li>Bunkerne nederst fanger opp ett tall hver gang, men smuldrer vekk der treffet kom.</li>'+
-      '<li>Trykk på et annet tall for å sikte på det i stedet. Tastene 1–6 skyter også.</li>'+
+      '<li>Trykk på et annet tall for å sikte på det i stedet. Tastene 1–8 skyter også.</li>'+
     '</ol>'+
     '<button class="start blink" id="knapp-start">TRYKK FOR Å STARTE</button>'
   );
@@ -590,7 +611,7 @@ function intro(){
 function start(){
   niva=1; poeng=0; liv=3; knust=0;
   steiner=[]; skudd=[]; gnister=[]; tekster=[];
-  valgt=null; slippTimer=0.4; risting=0; banner=0;
+  valgt=null; slippTimer=0.4; risting=0; banner=0; straffeTimer=0;
   nyeBunkere(); byggPad(); skjulSkjerm();
   tilstand='spill';
 }
